@@ -39,4 +39,5 @@ void extract_data(WCHAR *path_str, ATTRIBUTE *atrb, const size_t atr_count, FILE
 FILE_BUFFER *file_search(WCHAR *path_str, size_t *f_count, HWND hWnd);
 
 // Improve
-void read_files(FILE_BUFFER *files, const size_t f_count, ATTRIBUTE *atrb, const size_t atr_count);
+void read_files(FILE_BUFFER *files, const size_t f_count,
+	ATTRIBUTE *atrb, const size_t atr_count, HWND testbar);

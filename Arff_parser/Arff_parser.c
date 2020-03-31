@@ -13,6 +13,7 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    FilesSel(HWND, UINT, WPARAM, LPARAM);
 unsigned int __stdcall rfiles_t(void* data);
+unsigned int __stdcall timer(void* data);
 
 
 // Global Variables:
@@ -24,8 +25,9 @@ char relationHeader[4096];
 ATTRIBUTE *attribute_table;
 FILE_BUFFER *file_buffer;
 size_t attribute_count, files_count;
-HWND listh1, listh2, btn1, btn2, btn3, btn4, static1;
+HWND listh1, listh2, btn1, btn2, btn3, btn4, static1, static2, statusb1;
 uintptr_t T1, T2, T3;
+LARGE_INTEGER nStartTime, nStopTime, nFrequency;
 
 // Forward declarations of functions included in this code module:
 
@@ -124,6 +126,40 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
+// Description: 
+//   Creates a status bar and divides it into the specified number of parts.
+// Parameters:
+//   hwndParent - parent window for the status bar.
+//   idStatus - child window identifier of the status bar.
+//   hinst - handle to the application instance.
+//   cParts - number of parts into which to divide the status bar.
+// Returns:
+//   The handle to the status bar.
+//
+HWND DoCreateStatusBar(HWND hwndParent, int idStatus)
+{
+	HWND hwndStatus;
+	int cyVScroll;  // Height of scroll bar arrow.
+	RECT rcClient;
+
+	// Ensure that the common control DLL is loaded.
+	InitCommonControls();
+
+	cyVScroll = GetSystemMetrics(SM_CYVSCROLL);
+	// Get the coordinates of the parent window's client area.
+	GetClientRect(hwndParent, &rcClient);
+	// Create the status bar.
+	hwndStatus = CreateWindowEx(
+		0, PROGRESS_CLASS, (LPTSTR)NULL,
+		WS_CHILD | WS_VISIBLE, rcClient.left,
+		rcClient.bottom - cyVScroll,
+		rcClient.right, cyVScroll,
+		hwndParent, (HMENU)0, (HINSTANCE)GetWindowLong(hwndParent, GWL_HINSTANCE), NULL);                   // no window creation data
+	//SendMessage(hwndStatus, PBM_SETRANGE, 0, MAKELPARAM(0, cParts));
+	SendMessage(hwndStatus, PBM_SETSTEP, (WPARAM)1, 0);
+	return hwndStatus;
+}
+
 
 INT_PTR CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
 {
@@ -171,7 +207,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			static1 = reg_obj(L"No arff folder selected", L"static",
 				WS_VISIBLE | WS_CHILD ,
 				50, 10, 650, 20, hWnd, (HMENU)IDC_STATIC1);
-
+			static2 = reg_obj(L"Timer", L"static",
+				WS_VISIBLE | WS_CHILD,
+				750, 50, 100, 20, hWnd, (HMENU)IDC_STATIC2);
+			statusb1 = DoCreateStatusBar(hWnd, IDC_STATUSBAR);
 			//attribute_table = read_data_attributes(L"C:\\Users\\lcepa\\Desktop\\Script_make\\Visual_studio\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
 			
 			//update_lists(hWnd, attribute_table, attribute_count);
@@ -301,9 +340,42 @@ INT_PTR CALLBACK FilesSel(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 // ShowWindow(hwndButton, SW_HIDE);
 // T1 = (uintptr_t)_beginthreadex(0, 0, &paieska, 0, 0, 0);
+// QueryPerformanceCounter(&nStopTime);
+
+void timer_init(void)
+{
+	QueryPerformanceFrequency(&nFrequency);
+	QueryPerformanceCounter(&nStartTime);
+}
 
 unsigned int __stdcall rfiles_t(void* data)
 {
-	read_files(file_buffer, files_count, attribute_table, attribute_count);
+	SendMessage(statusb1, PBM_SETRANGE, 0, MAKELPARAM(0, files_count));
+	timer_init();
+	T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
+	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);
+	QueryPerformanceCounter(&nStopTime);
+	SendMessage(statusb1, PBM_SETPOS,  0, 0);
+	//SendMessage(testbar, PBM_GETPOS, 0, 0)
+	return 0;
+}
+
+unsigned int __stdcall timer(void* data)
+{
+	
+	WCHAR output_buffer[400];
+	double last_time = 0.0;
+	for (;;)
+	{
+		QueryPerformanceCounter(&nStopTime);
+		if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.1f)
+		{
+			last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
+			swprintf(output_buffer, 400,
+				L"%.1f", last_time);
+			SetWindowTextW(static2, output_buffer);
+		}
+	}
+	free(output_buffer);
 	return 0;
 }

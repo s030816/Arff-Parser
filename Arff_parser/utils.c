@@ -365,7 +365,8 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
 	return fbuf;
 }
 
-void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb, const size_t atr_count)
+void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
+	const size_t atr_count, HWND testbar)
 {
 	size_t i;
 	FILE *fp;
@@ -379,6 +380,7 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb, con
 	{
 		if((files + i)->selected)
 			extract_data((files + i)->path, atrb, atr_count,fp);
+		SendMessage(testbar, PBM_STEPIT, 0, 0);
 	}
 	fclose(fp);
 }

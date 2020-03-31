@@ -1,0 +1,22 @@
+@relation SMILEfeatures
+
+@attribute name string
+@attribute frameTime numeric
+@attribute mfcc_sma[1]_iqr2-3 numeric
+
+@data
+'fixed_1 Dziaugsmas_01',0.000000,5.316996e+00
+'fixed_1 Dziaugsmas_02',0.000000,5.249410e+00
+'fixed_1 Dziaugsmas_03',0.000000,4.613450e+00
+'fixed_1 Dziaugsmas_04',0.000000,6.348682e+00
+'fixed_1 Dziaugsmas_05',0.000000,6.375417e+00
+'fixed_1 Dziaugsmas_06',0.000000,6.675804e+00
+'fixed_1 Dziaugsmas_07',0.000000,4.488575e+00
+'fixed_1 Dziaugsmas_08',0.000000,7.768842e+00
+'fixed_1 Dziaugsmas_09',0.000000,7.110836e+00
+'fixed_1 Dziaugsmas_10',0.000000,7.095275e+00
+'fixed_1 Dziaugsmas_100',0.000000,4.829172e+00
+'fixed_1 Dziaugsmas_11',0.000000,6.798133e+00
+'fixed_1 Dziaugsmas_12',0.000000,6.206006e+00
+'fixed_1 Dziaugsmas_13',0.000000,4.969903e+00
+'fixed_1 Dziaugsmas_14',0.000000,4.068069e+00

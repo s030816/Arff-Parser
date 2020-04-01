@@ -246,11 +246,14 @@ void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count)
 	fprintf(fp, "%s", "\n@data\n");
 }
 
-void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, FILE *fp2)
+void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s)
 {
 	FILE *fp;
+	char *iter = *out;
+	char *btmp;
 	int tmp;
 	size_t i;
+	size_t buf_s = 4096;
 	register BOOL data_written = FALSE;
 	char *rbuffer = (char *)malloc(sizeof(char) * SECTOR_SIZE);
 	if (fp = _wfopen(path, L"r"))
@@ -262,23 +265,64 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, FILE *
 				if (strstr(rbuffer, "@data"))
 				{
 					while (isspace(tmp = fgetc(fp)));
-					if((atrb + 0)->selected)
-						fputc(tmp, fp2);
+					if ((atrb + 0)->selected)
+						*iter++ = (char)tmp;
+					if ((size_t)(iter - *out) == buf_s)
+					{
+						if (btmp = (char *)realloc(*out, buf_s += 4096))
+							*out = btmp;
+						else
+						{
+							error(L"extr data realloc failed");
+							exit(EXIT_SUCCESS);
+						}
+					}
+						//fputc(tmp, fp2);
 					for (i = 0; i < atr_count; ++i)
 					{
 						if(data_written && (atrb + i)->selected)
-							fputc(',', fp2);
+							*iter++ = (char)tmp;
+						if ((size_t)(iter - *out) == buf_s)
+						{
+							if (btmp = (char *)realloc(*out, buf_s += 4096))
+								*out = btmp;
+							else
+							{
+								error(L"extr data realloc failed");
+								exit(EXIT_SUCCESS);
+							}
+						}
 						while (',' != (tmp = fgetc(fp)) && '\n' != tmp) // TODO: READ STRING AND DATA FORMATS
 						{
 							if ((atrb + i)->selected)
 							{
-								fputc(tmp, fp2);
+								*iter++ = (char)tmp;
+								if ((size_t)(iter - *out) == buf_s)
+								{
+									if (btmp = (char *)realloc(*out, buf_s += 4096))
+										*out = btmp;
+									else
+									{
+										error(L"extr data realloc failed");
+										exit(EXIT_SUCCESS);
+									}
+								}
 								data_written = TRUE;
 							}
 								
 						}
 					}
-					fputc('\n', fp2);
+					if (btmp = (char *)realloc(*out, buf_s += 2))
+						*out = btmp;
+					else
+					{
+						error(L"extr data realloc failed");
+						exit(EXIT_SUCCESS);
+					}
+					*iter++ = '\n';
+					*iter = '\0';
+					*out_s = buf_s;
+					//fputc('\n', fp2);
 					break;
 				}
 			}
@@ -288,7 +332,6 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, FILE *
 				exit(EXIT_SUCCESS);
 			}
 		}
-		fclose(fp);
 	}
 	else
 	{
@@ -303,7 +346,8 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, FILE *
 unsigned int __stdcall fread_thread(void * data)
 {
 	EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
-	extract_data(arg->path, arg->atrb, arg->atr_count, arg->fp);
+	extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
+	//MessageBoxA(NULL, arg->output,"test",MB_OK);
 	WaitForSingleObject(ghMutex, INFINITE);
 	SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
 	ReleaseMutex(ghMutex);
@@ -378,20 +422,17 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
 void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	const size_t atr_count, HWND testbar) // TODO: FIX selected attributes count
 {
-	EX_DATA_ARGS exdta;
+	EX_DATA_ARGS *exdta, *iter;
 	size_t i, j;
 	FILE *fp;
 	HANDLE *t_handles = NULL;
 	DWORD t_count = 0;
-	exdta.atrb = atrb;
-	exdta.atr_count = atr_count;
-	exdta.sbar_handle = testbar;
+	
 	if (!(fp = fopen("test.txt", "w")))
 	{
 		error(L"Error opening file");
 		exit(EXIT_SUCCESS);
 	}
-	exdta.fp = fp;
 	for (i = 0; i < f_count; ++i)
 	{
 		if ((files + i)->selected)
@@ -399,18 +440,43 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			++t_count;
 		}
 	}
+	exdta = (EX_DATA_ARGS *)calloc(t_count, sizeof(EX_DATA_ARGS));
+	iter = exdta;
+	SendMessage(testbar, PBM_SETRANGE, 0, MAKELPARAM(0, t_count));
 	t_handles = (HANDLE *)calloc(t_count, sizeof(HANDLE));
 	make_header(fp, atrb,  atr_count);
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
 		if ((files + i)->selected)
 		{
-			exdta.path = (files + i)->path;
-			t_handles[j++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta, 0, 0);
+			if (!(j % 10))
+			{
+				WaitForMultipleObjects(10, iter, TRUE, INFINITE);
+				iter += 10;
+			}
+			
+			exdta[j].atrb = atrb;
+			exdta[j].atr_count = atr_count;
+			exdta[j].sbar_handle = testbar;
+			exdta[j].path = (files + i)->path;
+			exdta[j].output = (char *)malloc(sizeof(char) * 4096);
+			exdta[j].loc = &exdta[j].output;
+			exdta[j].out_b_size = &exdta[j].ots;
+			t_handles[j] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta[j], 0, 0);
+			++j;
 			//extract_data((files + i)->path, atrb, atr_count, fp);
 		}
 	}
 	//WaitForSingleObject(t_handle, INFINITE);
-	WaitForMultipleObjects(t_count, t_handles, TRUE, INFINITE);
+	while(!WaitForMultipleObjects(t_count, t_handles, TRUE, INFINITE));
+	for (i = 0; i < t_count; ++i)
+	{
+		//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);
+		fprintf(fp,"%s",exdta[i].output);
+		free(exdta[i].output);
+	}
+	free(exdta);
+	free(t_handles);
 	fclose(fp);
+	MessageBoxA(NULL, "Finish", "test", MB_OK);
 }

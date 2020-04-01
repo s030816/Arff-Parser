@@ -27,8 +27,11 @@ struct EX_DATA_ARGS_
 	WCHAR *path;
 	ATTRIBUTE *atrb;
 	size_t atr_count;
-	FILE *fp;
+	char *output;
+	char **loc;
 	HWND sbar_handle;
+	size_t *out_b_size;
+	size_t ots;
 };
 
 extern char relationHeader[4096];
@@ -46,7 +49,7 @@ void remove_item(ATTRIBUTE *atrb, HWND hWnd);
 void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count);
 INT_PTR CALLBACK BrowseCallbackProc(HWND, UINT, LPARAM, LPARAM);
 void browser(WCHAR *path_str);
-void extract_data(WCHAR *path_str, ATTRIBUTE *atrb, const size_t atr_count, FILE *fp2);
+void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s);
 unsigned int __stdcall fread_thread(void* data);
 FILE_BUFFER *file_search(WCHAR *path_str, size_t *f_count, HWND hWnd);
 

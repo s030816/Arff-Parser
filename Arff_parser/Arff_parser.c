@@ -353,7 +353,6 @@ void timer_init(void)
 
 unsigned int __stdcall rfiles_t(void* data)
 {
-	SendMessage(statusb1, PBM_SETRANGE, 0, MAKELPARAM(0, files_count));
 	timer_init();
 	T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
 	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);

@@ -5,6 +5,7 @@
 
 typedef struct ATTRIBUTE_ ATTRIBUTE;
 typedef struct FILE_BUFFER_ FILE_BUFFER;
+typedef struct EX_DATA_ARGS_ EX_DATA_ARGS;
 
 struct ATTRIBUTE_
 {
@@ -21,7 +22,17 @@ struct FILE_BUFFER_
 	WCHAR path[MAX_PATH];
 };
 
+struct EX_DATA_ARGS_
+{
+	WCHAR *path;
+	ATTRIBUTE *atrb;
+	size_t atr_count;
+	FILE *fp;
+	HWND sbar_handle;
+};
+
 extern char relationHeader[4096];
+extern HANDLE ghMutex;
 
 HWND reg_obj(const WCHAR *name, WCHAR *classname, unsigned long attributes,
 	unsigned short xPos, unsigned short yPos, unsigned short width, 
@@ -36,6 +47,7 @@ void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count);
 INT_PTR CALLBACK BrowseCallbackProc(HWND, UINT, LPARAM, LPARAM);
 void browser(WCHAR *path_str);
 void extract_data(WCHAR *path_str, ATTRIBUTE *atrb, const size_t atr_count, FILE *fp2);
+unsigned int __stdcall fread_thread(void* data);
 FILE_BUFFER *file_search(WCHAR *path_str, size_t *f_count, HWND hWnd);
 
 // Improve

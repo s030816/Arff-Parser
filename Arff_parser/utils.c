@@ -300,6 +300,16 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, FILE *
 	free(rbuffer);
 }
 
+unsigned int __stdcall fread_thread(void * data)
+{
+	EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
+	extract_data(arg->path, arg->atrb, arg->atr_count, arg->fp);
+	WaitForSingleObject(ghMutex, INFINITE);
+	SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
+	ReleaseMutex(ghMutex);
+	return 0;
+}
+
 static void insert_file(FILE_BUFFER **atr, const size_t size)
 {
 	void *tmp = NULL;
@@ -366,21 +376,41 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
 }
 
 void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
-	const size_t atr_count, HWND testbar)
+	const size_t atr_count, HWND testbar) // TODO: FIX selected attributes count
 {
-	size_t i;
+	EX_DATA_ARGS exdta;
+	size_t i, j;
 	FILE *fp;
+	HANDLE *t_handles = NULL;
+	DWORD t_count = 0;
+	exdta.atrb = atrb;
+	exdta.atr_count = atr_count;
+	exdta.sbar_handle = testbar;
 	if (!(fp = fopen("test.txt", "w")))
 	{
 		error(L"Error opening file");
 		exit(EXIT_SUCCESS);
 	}
-	make_header(fp, atrb,  atr_count);
+	exdta.fp = fp;
 	for (i = 0; i < f_count; ++i)
 	{
-		if((files + i)->selected)
-			extract_data((files + i)->path, atrb, atr_count,fp);
-		SendMessage(testbar, PBM_STEPIT, 0, 0);
+		if ((files + i)->selected)
+		{
+			++t_count;
+		}
 	}
+	t_handles = (HANDLE *)calloc(t_count, sizeof(HANDLE));
+	make_header(fp, atrb,  atr_count);
+	for (i = 0, j = 0; i < f_count; ++i)
+	{
+		if ((files + i)->selected)
+		{
+			exdta.path = (files + i)->path;
+			t_handles[j++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta, 0, 0);
+			//extract_data((files + i)->path, atrb, atr_count, fp);
+		}
+	}
+	//WaitForSingleObject(t_handle, INFINITE);
+	WaitForMultipleObjects(t_count, t_handles, TRUE, INFINITE);
 	fclose(fp);
 }

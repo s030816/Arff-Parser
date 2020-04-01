@@ -28,6 +28,8 @@ size_t attribute_count, files_count;
 HWND listh1, listh2, btn1, btn2, btn3, btn4, static1, static2, statusb1;
 uintptr_t T1, T2, T3;
 LARGE_INTEGER nStartTime, nStopTime, nFrequency;
+HANDLE ghMutex;
+
 
 // Forward declarations of functions included in this code module:
 
@@ -211,6 +213,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				WS_VISIBLE | WS_CHILD,
 				750, 50, 100, 20, hWnd, (HMENU)IDC_STATIC2);
 			statusb1 = DoCreateStatusBar(hWnd, IDC_STATUSBAR);
+			ghMutex = CreateMutex(NULL, FALSE, NULL);
 			//attribute_table = read_data_attributes(L"C:\\Users\\lcepa\\Desktop\\Script_make\\Visual_studio\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
 			
 			//update_lists(hWnd, attribute_table, attribute_count);
@@ -355,7 +358,7 @@ unsigned int __stdcall rfiles_t(void* data)
 	T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
 	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);
 	QueryPerformanceCounter(&nStopTime);
-	SendMessage(statusb1, PBM_SETPOS,  0, 0);
+	SendMessage(statusb1, PBM_SETPOS, 0, 0);
 	//SendMessage(testbar, PBM_GETPOS, 0, 0)
 	return 0;
 }

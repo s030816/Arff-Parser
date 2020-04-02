@@ -34,6 +34,13 @@ HWND reg_obj(const WCHAR *name, WCHAR *classname, unsigned long attributes,
 		parent, num, (HINSTANCE)GetWindowLong(parent, GWL_HINSTANCE), NULL));
 }
 
+void wait_multiple_kernel_objects(HANDLE *arr, size_t items)
+{
+	size_t i;
+	for (i = 0; i < items; ++i)
+		WaitForSingleObject(arr + i, INFINITE);
+}
+
 void add_item(HWND hWnd, char *text, HMENU id)
 {
 	static size_t horizontal_extent = 35;
@@ -422,10 +429,11 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
 void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	const size_t atr_count, HWND testbar) // TODO: FIX selected attributes count
 {
-	EX_DATA_ARGS *exdta, *iter;
+	EX_DATA_ARGS *exdta;
 	size_t i, j;
 	FILE *fp;
 	HANDLE *t_handles = NULL;
+	HANDLE *iter;
 	DWORD t_count = 0;
 	
 	if (!(fp = fopen("test.txt", "w")))
@@ -441,9 +449,9 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 		}
 	}
 	exdta = (EX_DATA_ARGS *)calloc(t_count, sizeof(EX_DATA_ARGS));
-	iter = exdta;
 	SendMessage(testbar, PBM_SETRANGE, 0, MAKELPARAM(0, t_count));
 	t_handles = (HANDLE *)calloc(t_count, sizeof(HANDLE));
+	iter = t_handles;
 	make_header(fp, atrb,  atr_count);
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
@@ -451,8 +459,8 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 		{
 			if (!(j % 10))
 			{
-				WaitForMultipleObjects(10, iter, TRUE, INFINITE);
-				iter += 10;
+				//WaitForMultipleObjects(10, iter, TRUE, INFINITE);
+				//iter += 10;
 			}
 			
 			exdta[j].atrb = atrb;
@@ -468,7 +476,8 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 		}
 	}
 	//WaitForSingleObject(t_handle, INFINITE);
-	while(!WaitForMultipleObjects(t_count, t_handles, TRUE, INFINITE));
+	wait_multiple_kernel_objects(t_handles, j);
+	//Wait(t_count, t_handles, TRUE, INFINITE);
 	for (i = 0; i < t_count; ++i)
 	{
 		//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);

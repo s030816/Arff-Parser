@@ -1,5 +1,3 @@
 ﻿  utils.c
-c:\users\lcepa\source\repos\arff-parser\arff_parser\utils.c(454): warning C4047: 'function': 'const HANDLE *' differs in levels of indirection from 'EX_DATA_ARGS *'
-c:\users\lcepa\source\repos\arff-parser\arff_parser\utils.c(454): warning C4022: 'WaitForMultipleObjects': pointer mismatch for actual parameter 2
   Arff_parser.vcxproj -> C:\Users\lcepa\Source\Repos\Arff-Parser\Debug\Arff_parser.exe
   Arff_parser.vcxproj -> C:\Users\lcepa\Source\Repos\Arff-Parser\Debug\Arff_parser.pdb (Full PDB)

@@ -3,7 +3,23 @@
 #include "Arff_parser.h"
 
 #define SECTOR_SIZE 4096
-#define THREAD_COUNT 15
+#define THREAD_COUNT 5
+#define LOCK_MUTEX(mtx) {WaitForSingleObject(mtx, INFINITE);}
+
+typedef struct STACK_ STACK;
+HANDLE START_T, PAUSE_T, RESUME_T;
+
+// ATOMIC GLOBALS
+BOOL FINISHED = FALSE;
+int stack_index = 0;
+STACK *st;
+
+
+struct STACK_
+{
+	EX_DATA_ARGS *data;
+};
+
 
 void debug(int number)
 {
@@ -15,6 +31,17 @@ void debug(int number)
 void error(WCHAR *text)
 {
 	MessageBoxW(NULL, text, L"Error", MB_OK);
+}
+
+
+void push(EX_DATA_ARGS *data)
+{
+	(st + stack_index++)->data = data;
+}
+
+EX_DATA_ARGS *pop(void)
+{
+	return ((st + stack_index--)->data);
 }
 
 void custom_sscanf(char *buffer, char *t1, char *t2)
@@ -377,12 +404,29 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 
 unsigned int __stdcall fread_thread(void * data)
 {
-	EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
-	extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
+	EX_DATA_ARGS *arg;
+	while(!FINISHED) // what
+		Sleep(10);
+	for (;;)
+	{
+		if (stack_index)
+		{
+			WaitForSingleObject(ghMutex, INFINITE);
+			arg = pop();
+			ReleaseMutex(ghMutex);
+			extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
+			//WaitForSingleObject(ghMutex, INFINITE);
+			SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
+
+		}
+		else
+		{
+			break;
+		}
+	}
+	//EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
+	//extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
 	//MessageBoxA(NULL, arg->output,"test",MB_OK);
-	WaitForSingleObject(ghMutex, INFINITE);
-	SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
-	ReleaseMutex(ghMutex);
 	return 0;
 }
 
@@ -458,7 +502,6 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	size_t i, j;
 	FILE *fp;
 	HANDLE *t_handles = NULL;
-	HANDLE *iter;
 	DWORD t_count = 0;
 	DWORD t_spawned = 0;
 	
@@ -477,20 +520,14 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	exdta = (EX_DATA_ARGS *)calloc(t_count, sizeof(EX_DATA_ARGS));
 	SendMessage(testbar, PBM_SETRANGE, 0, MAKELPARAM(0, t_count));
 	t_handles = (HANDLE *)calloc(THREAD_COUNT, sizeof(HANDLE));
-	iter = t_handles;
+	st = (STACK *)malloc(THREAD_COUNT * sizeof(STACK));
+	while(t_spawned < THREAD_COUNT)
+		t_handles[t_spawned++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
 	make_header(fp, atrb,  atr_count);
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
 		if ((files + i)->selected)
 		{
-			if (!(j % THREAD_COUNT))
-			{
-				WaitForMultipleObjects(THREAD_COUNT, t_handles, TRUE, INFINITE);
-				for(t_spawned = 0; t_spawned < THREAD_COUNT; ++t_spawned)
-					CloseHandle(t_handles + t_spawned);
-				t_spawned = 0;
-
-			}
 			
 			exdta[j].atrb = atrb;
 			exdta[j].atr_count = atr_count;
@@ -504,12 +541,21 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			}
 			exdta[j].loc = &exdta[j].output;
 			exdta[j].out_b_size = &exdta[j].ots;
-			t_handles[t_spawned++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta[j], 0, 0);
+
+			WaitForSingleObject(ghMutex, INFINITE);
+			push(&exdta[j]);
+			ReleaseMutex(ghMutex);
+			
 			++j;
 			//extract_data((files + i)->path, atrb, atr_count, fp);
 		}
 	}
+	WaitForSingleObject(ghMutex, INFINITE);
+	FINISHED = TRUE;
+	ReleaseMutex(ghMutex);
 	WaitForMultipleObjects(t_spawned, t_handles, TRUE, INFINITE);
+	for (j = 0; j < t_spawned; ++j)
+		CloseHandle(t_handles + t_spawned);
 	//WaitForSingleObject(t_handle, INFINITE);
 	/*
 	if(t_count <= MAXIMUM_WAIT_OBJECTS)
@@ -536,6 +582,7 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	}
 	free(exdta);
 	free(t_handles);
+	free(st);
 	fclose(fp);
 	MessageBoxA(NULL, "Finish", "test", MB_OK);
 }

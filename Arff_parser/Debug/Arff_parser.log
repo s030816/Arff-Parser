@@ -1,3 +1,1 @@
-﻿  utils.c
-  Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\Arff-Parser\Debug\Arff_parser.exe
-  Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\Arff-Parser\Debug\Arff_parser.pdb (Full PDB)
+﻿LINK : fatal error LNK1104: cannot open file 'C:\Users\zenon\Source\Repos\Arff-Parser\Debug\Arff_parser.exe'

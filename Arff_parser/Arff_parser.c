@@ -20,7 +20,7 @@ unsigned int __stdcall timer(void* data);
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-WCHAR selectedArffFolder[MAX_PATH];
+WCHAR selectedArffFolder[MAX_PATH] = L"C:\\Users\\zenon\\Desktop\\Namu_darbai_25\\multithrea\\arff";
 char relationHeader[4096];
 ATTRIBUTE *attribute_table;
 FILE_BUFFER *file_buffer;
@@ -261,8 +261,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, FilesSel);
 				break;
 			case ID_FILE_SELECTFOLDER:
-				browser(selectedArffFolder);
-				attribute_table = read_data_attributes(L"C:\\Users\\lcepa\\Desktop\\Script_make\\Visual_studio\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
+				//browser(selectedArffFolder);
+
+				attribute_table = read_data_attributes(L"C:\\Users\\zenon\\Desktop\\Namu_darbai_25\\multithrea\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
 				ShowWindow(btn1, SW_SHOW);
 				ShowWindow(btn2, SW_SHOW);
 				SetWindowTextW(static1, selectedArffFolder);

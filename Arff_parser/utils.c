@@ -3,6 +3,7 @@
 #include "Arff_parser.h"
 
 #define SECTOR_SIZE 4096
+#define THREAD_COUNT 15
 
 void debug(int number)
 {
@@ -38,7 +39,13 @@ void wait_multiple_kernel_objects(HANDLE *arr, size_t items)
 {
 	size_t i;
 	for (i = 0; i < items; ++i)
-		WaitForSingleObject(arr + i, INFINITE);
+		if((arr+i))
+			WaitForSingleObject(arr + i, INFINITE);
+		else
+		{
+			while (!(arr + i))
+				Sleep(5);
+		}
 }
 
 void add_item(HWND hWnd, char *text, HMENU id)
@@ -139,7 +146,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 	}
 	else
 	{
-		error(L"Error opening file");
+		error(L"Error opening file: 142");
 		exit(EXIT_SUCCESS);
 	}
 	free(rbuffer);
@@ -259,7 +266,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 	char *iter = *out;
 	char *btmp;
 	int tmp;
-	size_t i;
+	size_t i, tmp_s;
 	size_t buf_s = 4096;
 	register BOOL data_written = FALSE;
 	char *rbuffer = (char *)malloc(sizeof(char) * SECTOR_SIZE);
@@ -276,23 +283,31 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 						*iter++ = (char)tmp;
 					if ((size_t)(iter - *out) == buf_s)
 					{
+						tmp_s = buf_s;
 						if (btmp = (char *)realloc(*out, buf_s += 4096))
+						{
 							*out = btmp;
+							iter = *out + tmp_s;
+						}
 						else
 						{
 							error(L"extr data realloc failed");
 							exit(EXIT_SUCCESS);
 						}
 					}
-						//fputc(tmp, fp2);
+					//fputc(tmp, fp2);
 					for (i = 0; i < atr_count; ++i)
 					{
-						if(data_written && (atrb + i)->selected)
+						if (data_written && (atrb + i)->selected)
 							*iter++ = (char)tmp;
 						if ((size_t)(iter - *out) == buf_s)
 						{
+							tmp_s = buf_s;
 							if (btmp = (char *)realloc(*out, buf_s += 4096))
+							{
 								*out = btmp;
+								iter = *out + tmp_s;
+							}
 							else
 							{
 								error(L"extr data realloc failed");
@@ -306,8 +321,12 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 								*iter++ = (char)tmp;
 								if ((size_t)(iter - *out) == buf_s)
 								{
+									tmp_s = buf_s;
 									if (btmp = (char *)realloc(*out, buf_s += 4096))
+									{
 										*out = btmp;
+										iter = *out + tmp_s;
+									}
 									else
 									{
 										error(L"extr data realloc failed");
@@ -316,11 +335,15 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 								}
 								data_written = TRUE;
 							}
-								
+
 						}
 					}
+					tmp_s = (size_t)(iter - *out);
 					if (btmp = (char *)realloc(*out, buf_s += 2))
+					{
 						*out = btmp;
+						iter = *out + tmp_s;
+					}
 					else
 					{
 						error(L"extr data realloc failed");
@@ -339,14 +362,16 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 				exit(EXIT_SUCCESS);
 			}
 		}
+		fclose(fp);
 	}
 	else
 	{
-		error(L"Error opening file");
+		//error(L"Error opening file: 345");
+		error(path);
 		exit(EXIT_SUCCESS);
 	}
 
-
+	
 	free(rbuffer);
 }
 
@@ -435,10 +460,11 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	HANDLE *t_handles = NULL;
 	HANDLE *iter;
 	DWORD t_count = 0;
+	DWORD t_spawned = 0;
 	
 	if (!(fp = fopen("test.txt", "w")))
 	{
-		error(L"Error opening file");
+		error(L"Error opening output file");
 		exit(EXIT_SUCCESS);
 	}
 	for (i = 0; i < f_count; ++i)
@@ -450,17 +476,20 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	}
 	exdta = (EX_DATA_ARGS *)calloc(t_count, sizeof(EX_DATA_ARGS));
 	SendMessage(testbar, PBM_SETRANGE, 0, MAKELPARAM(0, t_count));
-	t_handles = (HANDLE *)calloc(t_count, sizeof(HANDLE));
+	t_handles = (HANDLE *)calloc(THREAD_COUNT, sizeof(HANDLE));
 	iter = t_handles;
 	make_header(fp, atrb,  atr_count);
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
 		if ((files + i)->selected)
 		{
-			if (!(j % 10))
+			if (!(j % THREAD_COUNT))
 			{
-				//WaitForMultipleObjects(10, iter, TRUE, INFINITE);
-				//iter += 10;
+				WaitForMultipleObjects(THREAD_COUNT, t_handles, TRUE, INFINITE);
+				for(t_spawned = 0; t_spawned < THREAD_COUNT; ++t_spawned)
+					CloseHandle(t_handles + t_spawned);
+				t_spawned = 0;
+
 			}
 			
 			exdta[j].atrb = atrb;
@@ -468,21 +497,42 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			exdta[j].sbar_handle = testbar;
 			exdta[j].path = (files + i)->path;
 			exdta[j].output = (char *)malloc(sizeof(char) * 4096);
+			if (!exdta[j].output)
+			{
+				error(L"malloc fail 479");
+				exit(EXIT_SUCCESS);
+			}
 			exdta[j].loc = &exdta[j].output;
 			exdta[j].out_b_size = &exdta[j].ots;
-			t_handles[j] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta[j], 0, 0);
+			t_handles[t_spawned++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, &exdta[j], 0, 0);
 			++j;
 			//extract_data((files + i)->path, atrb, atr_count, fp);
 		}
 	}
+	WaitForMultipleObjects(t_spawned, t_handles, TRUE, INFINITE);
 	//WaitForSingleObject(t_handle, INFINITE);
-	wait_multiple_kernel_objects(t_handles, j);
+	/*
+	if(t_count <= MAXIMUM_WAIT_OBJECTS)
+		debug(WaitForMultipleObjects(t_count, t_handles, TRUE, INFINITE));
+	else
+	{
+		for (i = MAXIMUM_WAIT_OBJECTS, j = 0; i < t_count; i += MAXIMUM_WAIT_OBJECTS, j+= MAXIMUM_WAIT_OBJECTS)
+		{
+			WaitForMultipleObjects(MAXIMUM_WAIT_OBJECTS, t_handles + j, TRUE, INFINITE);
+		}
+		WaitForMultipleObjects(t_count-i-MAXIMUM_WAIT_OBJECTS, t_handles + j- MAXIMUM_WAIT_OBJECTS, TRUE, INFINITE);
+	}
+	*/
+			
+	//debug(WAIT_OBJECT_0);
+	//wait_multiple_kernel_objects(t_handles, j); 
 	//Wait(t_count, t_handles, TRUE, INFINITE);
 	for (i = 0; i < t_count; ++i)
 	{
 		//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);
-		fprintf(fp,"%s",exdta[i].output);
+		fprintf(fp,"%d %s\n",i,exdta[i].output);
 		free(exdta[i].output);
+		
 	}
 	free(exdta);
 	free(t_handles);

@@ -1,0 +1,12 @@
+﻿  utils.c
+utils.c(68): warning C4047: 'function': 'int' differs in levels of indirection from 'EX_DATA_ARGS *'
+utils.c(68): warning C4024: 'debug': different types for formal and actual parameter 1
+utils.c(70): warning C4047: 'function': 'int' differs in levels of indirection from 'STACK *'
+utils.c(70): warning C4024: 'debug': different types for formal and actual parameter 1
+  Generating code
+  2 of 34 functions ( 5.9%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\Arff-Parser\Release\Arff_parser.exe
+  Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\Arff-Parser\Release\Arff_parser.pdb (Full PDB)

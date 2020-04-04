@@ -1,5 +1,0 @@
-@relation SMILEfeatures
-
-@attribute pcm_LOGenergy_sma_maxPos numeric
-
-@data

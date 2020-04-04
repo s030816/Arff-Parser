@@ -6,12 +6,15 @@
 #define THREAD_COUNT 5
 #define LOCK_MUTEX(mtx) {WaitForSingleObject(mtx, INFINITE);}
 
+// DEBUGING GLOBALS
+int line_call;
+
 typedef struct STACK_ STACK;
 HANDLE START_T, PAUSE_T, RESUME_T;
 
 // ATOMIC GLOBALS
-BOOL FINISHED = FALSE;
-int stack_index = 0;
+LONG FINISHED = FALSE;
+LONG stack_index = 0;
 STACK *st;
 
 
@@ -36,12 +39,38 @@ void error(WCHAR *text)
 
 void push(EX_DATA_ARGS *data)
 {
+	//error(data->path);
 	(st + stack_index++)->data = data;
+}
+
+BOOL stack_empty(void)
+{
+	BOOL t = FALSE;
+	WaitForSingleObject(ghMutex, INFINITE);
+	if (InterlockedCompareExchange(&stack_index, stack_index, stack_index))
+		t = FALSE;
+	else t = TRUE;
+	ReleaseMutex(ghMutex);
+	return t;
 }
 
 EX_DATA_ARGS *pop(void)
 {
-	return ((st + stack_index--)->data);
+	EX_DATA_ARGS *tmp = NULL;
+	LONG st_s;
+	WaitForSingleObject(ghMutex, INFINITE);
+	st_s = --stack_index;
+	ReleaseMutex(ghMutex);
+	//debug(st_s);
+	tmp = ((st + st_s)->data);
+	if (!tmp)
+	{
+		debug(tmp);
+		debug(st_s);
+		debug(st);
+	}
+	
+	return tmp;
 }
 
 void custom_sscanf(char *buffer, char *t1, char *t2)
@@ -60,19 +89,6 @@ HWND reg_obj(const WCHAR *name, WCHAR *classname, unsigned long attributes,
 	HWND hWnd = NULL;
 	return (hWnd = CreateWindow(classname, name, attributes, xPos, yPos, width, height,
 		parent, num, (HINSTANCE)GetWindowLong(parent, GWL_HINSTANCE), NULL));
-}
-
-void wait_multiple_kernel_objects(HANDLE *arr, size_t items)
-{
-	size_t i;
-	for (i = 0; i < items; ++i)
-		if((arr+i))
-			WaitForSingleObject(arr + i, INFINITE);
-		else
-		{
-			while (!(arr + i))
-				Sleep(5);
-		}
 }
 
 void add_item(HWND hWnd, char *text, HMENU id)
@@ -405,18 +421,19 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 unsigned int __stdcall fread_thread(void * data)
 {
 	EX_DATA_ARGS *arg;
-	while(!FINISHED) // what
+	while(FALSE == InterlockedCompareExchange(&FINISHED, FINISHED, FINISHED)) // what
 		Sleep(10);
-	for (;;)
+	for (;; Sleep(10))
 	{
-		if (stack_index)
+		if (!stack_empty())
 		{
-			WaitForSingleObject(ghMutex, INFINITE);
+			
 			arg = pop();
-			ReleaseMutex(ghMutex);
+			//ReleaseMutex(ghMutex);
 			extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
 			//WaitForSingleObject(ghMutex, INFINITE);
-			SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
+			//SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
+			//ReleaseMutex(ghMutex);
 
 		}
 		else
@@ -550,12 +567,15 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			//extract_data((files + i)->path, atrb, atr_count, fp);
 		}
 	}
-	WaitForSingleObject(ghMutex, INFINITE);
-	FINISHED = TRUE;
-	ReleaseMutex(ghMutex);
+	//WaitForSingleObject(ghMutex, INFINITE);
+	//FINISHED = TRUE;
+	InterlockedExchange(&FINISHED, TRUE);
+	//ReleaseMutex(ghMutex);
 	WaitForMultipleObjects(t_spawned, t_handles, TRUE, INFINITE);
+	/*
 	for (j = 0; j < t_spawned; ++j)
-		CloseHandle(t_handles + t_spawned);
+		CloseHandle(t_handles + j);
+		*/
 	//WaitForSingleObject(t_handle, INFINITE);
 	/*
 	if(t_count <= MAXIMUM_WAIT_OBJECTS)

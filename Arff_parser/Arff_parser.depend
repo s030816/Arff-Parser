@@ -1,0 +1,20 @@
+# depslib dependency file v1.0
+1587221348 source:c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\arff_parser.rc
+
+1587221349 source:c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\stdafx.c
+	"stdafx.h"
+
+1587221349 c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\stdafx.h
+	"targetver.h"
+	<windows.h>
+	<shlobj.h>
+	<process.h>
+	<stdio.h>
+	<stdlib.h>
+	<malloc.h>
+	<memory.h>
+	<tchar.h>
+	<ctype.h>
+
+1587285863 c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\targetver.h
+

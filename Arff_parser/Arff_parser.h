@@ -2,7 +2,6 @@
 
 #include "resource.h"
 
-
 typedef struct ATTRIBUTE_ ATTRIBUTE;
 typedef struct FILE_BUFFER_ FILE_BUFFER;
 typedef struct EX_DATA_ARGS_ EX_DATA_ARGS;
@@ -28,9 +27,7 @@ struct EX_DATA_ARGS_
 	ATTRIBUTE *atrb;
 	size_t atr_count;
 	char *output;
-	char **loc;
 	HWND sbar_handle;
-	size_t *out_b_size;
 	size_t ots;
 };
 

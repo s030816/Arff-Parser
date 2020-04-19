@@ -3,18 +3,15 @@
 #include "Arff_parser.h"
 
 #define SECTOR_SIZE 4096
-#define THREAD_COUNT 5
-#define LOCK_MUTEX(mtx) {WaitForSingleObject(mtx, INFINITE);}
-
-// DEBUGING GLOBALS
-int line_call;
+#define LINE_BUFFER_SIZE 8192
+#define MEGABYTE_CHUNK 1048576
 
 typedef struct STACK_ STACK;
 HANDLE START_T, PAUSE_T, RESUME_T;
+volatile uintptr_t WORKING_T1, WORKING_T2, WORKING_T3, WORKING_T4, WORKING_T5;
 
 // ATOMIC GLOBALS
-LONG FINISHED = FALSE;
-LONG stack_index = 0;
+volatile LONG stack_index = 0;
 STACK *st;
 
 
@@ -26,7 +23,7 @@ struct STACK_
 
 void debug(int number)
 {
-	WCHAR str[100];
+	WCHAR str[500];
 	wsprintfW(str, L"debug: %d", number);
 	MessageBoxW(NULL, str,L"Debug", MB_OK);
 }
@@ -43,31 +40,23 @@ void push(EX_DATA_ARGS *data)
 	(st + stack_index++)->data = data;
 }
 
-BOOL stack_empty(void)
-{
-	BOOL t = FALSE;
-	WaitForSingleObject(ghMutex, INFINITE);
-	if (InterlockedCompareExchange(&stack_index, stack_index, stack_index))
-		t = FALSE;
-	else t = TRUE;
-	ReleaseMutex(ghMutex);
-	return t;
-}
-
-EX_DATA_ARGS *pop(void)
+inline EX_DATA_ARGS *pop(void)
 {
 	EX_DATA_ARGS *tmp = NULL;
 	LONG st_s;
+
 	WaitForSingleObject(ghMutex, INFINITE);
 	st_s = --stack_index;
 	ReleaseMutex(ghMutex);
+
 	//debug(st_s);
 	tmp = ((st + st_s)->data);
 	if (!tmp)
 	{
-		debug(tmp);
-		debug(st_s);
-		debug(st);
+		debug((int)tmp);
+		debug((int)st_s);
+		debug((int)st);
+		exit(EXIT_SUCCESS);
 	}
 	
 	return tmp;
@@ -305,14 +294,22 @@ void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count)
 
 void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	char *iter = *out;
-	char *btmp;
+	char *btmp = NULL;
+	char *r_ptr = NULL;
 	int tmp;
 	size_t i, tmp_s;
-	size_t buf_s = 4096;
+	size_t buf_s = LINE_BUFFER_SIZE;
 	register BOOL data_written = FALSE;
-	char *rbuffer = (char *)malloc(sizeof(char) * SECTOR_SIZE);
+	//OutputDebugStringW(L"Pre file malloc\n");
+	char *rbuffer = (char *)malloc(sizeof(char) * MEGABYTE_CHUNK);
+	if (!rbuffer)
+	{
+		error(L"1 MB memory allocation failed");
+		exit(EXIT_SUCCESS);
+	}
+	//OutputDebugStringW(L"Post file malloc\n");
 	if (fp = _wfopen(path, L"r"))
 	{
 		for (;;)
@@ -321,13 +318,23 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 			{
 				if (strstr(rbuffer, "@data"))
 				{
-					while (isspace(tmp = fgetc(fp)));
+					if (MEGABYTE_CHUNK == fread(rbuffer, sizeof(char), MEGABYTE_CHUNK, fp))
+					{
+						// TODO: IMPLEMENT 10 MB buffer extending
+						error(L"File is bigger than 1 MB");
+						exit(EXIT_SUCCESS);
+					}
+					//OutputDebugStringW(L"Closing file handle\n");
+					fclose(fp);
+
+					r_ptr = rbuffer;
+					while (isspace(tmp = *r_ptr++));
 					if ((atrb + 0)->selected)
 						*iter++ = (char)tmp;
 					if ((size_t)(iter - *out) == buf_s)
 					{
 						tmp_s = buf_s;
-						if (btmp = (char *)realloc(*out, buf_s += 4096))
+						if (btmp = (char *)realloc(*out, buf_s += LINE_BUFFER_SIZE))
 						{
 							*out = btmp;
 							iter = *out + tmp_s;
@@ -346,7 +353,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 						if ((size_t)(iter - *out) == buf_s)
 						{
 							tmp_s = buf_s;
-							if (btmp = (char *)realloc(*out, buf_s += 4096))
+							if (btmp = (char *)realloc(*out, buf_s += LINE_BUFFER_SIZE))
 							{
 								*out = btmp;
 								iter = *out + tmp_s;
@@ -357,7 +364,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 								exit(EXIT_SUCCESS);
 							}
 						}
-						while (',' != (tmp = fgetc(fp)) && '\n' != tmp) // TODO: READ STRING AND DATA FORMATS
+						while (',' != (tmp = *r_ptr++) && '\n' != tmp) // TODO: READ STRING AND DATA FORMATS
 						{
 							if ((atrb + i)->selected)
 							{
@@ -365,7 +372,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 								if ((size_t)(iter - *out) == buf_s)
 								{
 									tmp_s = buf_s;
-									if (btmp = (char *)realloc(*out, buf_s += 4096))
+									if (btmp = (char *)realloc(*out, buf_s += LINE_BUFFER_SIZE))
 									{
 										*out = btmp;
 										iter = *out + tmp_s;
@@ -381,16 +388,19 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 
 						}
 					}
-					tmp_s = (size_t)(iter - *out);
-					if (btmp = (char *)realloc(*out, buf_s += 2))
+					if ((size_t)(iter - *out) >= buf_s - 2)
 					{
-						*out = btmp;
-						iter = *out + tmp_s;
-					}
-					else
-					{
-						error(L"extr data realloc failed");
-						exit(EXIT_SUCCESS);
+						tmp_s = (size_t)(iter - *out);
+						if (btmp = (char *)realloc(*out, buf_s += 2))
+						{
+							*out = btmp;
+							iter = *out + tmp_s;
+						}
+						else
+						{
+							error(L"extr data realloc failed");
+							exit(EXIT_SUCCESS);
+						}
 					}
 					*iter++ = '\n';
 					*iter = '\0';
@@ -405,7 +415,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 				exit(EXIT_SUCCESS);
 			}
 		}
-		fclose(fp);
+		
 	}
 	else
 	{
@@ -413,26 +423,27 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 		error(path);
 		exit(EXIT_SUCCESS);
 	}
-
-	
-	free(rbuffer);
+	//OutputDebugStringW(L"Freeing rbuffer\n");
+	if(rbuffer)
+		free(rbuffer);
+	else
+		OutputDebugStringW(L"local buffer deallocation fail\n");
 }
 
 unsigned int __stdcall fread_thread(void * data)
 {
 	EX_DATA_ARGS *arg;
-	while(FALSE == InterlockedCompareExchange(&FINISHED, FINISHED, FINISHED)) // what
-		Sleep(10);
-	for (;; Sleep(10))
+	for (;;) // TODO: Suspending status check
 	{
-		if (!stack_empty())
+		if (InterlockedCompareExchange(&stack_index, stack_index, stack_index))
 		{
-			
+			//OutputDebugStringW(L"Pre pop\n");
 			arg = pop();
+			//OutputDebugStringW(L"post pop\n");
 			//ReleaseMutex(ghMutex);
-			extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
+			extract_data(arg->path, arg->atrb, arg->atr_count, &arg->output, &arg->ots);
 			//WaitForSingleObject(ghMutex, INFINITE);
-			//SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
+			SendMessage(arg->sbar_handle, PBM_STEPIT, 0, 0);
 			//ReleaseMutex(ghMutex);
 
 		}
@@ -444,6 +455,8 @@ unsigned int __stdcall fread_thread(void * data)
 	//EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
 	//extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
 	//MessageBoxA(NULL, arg->output,"test",MB_OK);
+	//OutputDebugStringW(L"i finished t\n");
+	//Sleep(10000);
 	return 0;
 }
 
@@ -471,7 +484,7 @@ void update_selected_file_list(FILE_BUFFER *fbuf, HWND hWnd)
 	}
 }
 
-FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
+FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount, HWND hWnd)
 {
 	WIN32_FIND_DATA fd = { 0 };
 	FILE_BUFFER *fbuf = NULL;
@@ -515,12 +528,10 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount,HWND hWnd)
 void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	const size_t atr_count, HWND testbar) // TODO: FIX selected attributes count
 {
-	EX_DATA_ARGS *exdta;
+	EX_DATA_ARGS *exdta = NULL;
 	size_t i, j;
 	FILE *fp;
-	HANDLE *t_handles = NULL;
 	DWORD t_count = 0;
-	DWORD t_spawned = 0;
 	
 	if (!(fp = fopen("test.txt", "w")))
 	{
@@ -534,12 +545,13 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			++t_count;
 		}
 	}
+	//debug(t_count);
 	exdta = (EX_DATA_ARGS *)calloc(t_count, sizeof(EX_DATA_ARGS));
 	SendMessage(testbar, PBM_SETRANGE, 0, MAKELPARAM(0, t_count));
-	t_handles = (HANDLE *)calloc(THREAD_COUNT, sizeof(HANDLE));
-	st = (STACK *)malloc(THREAD_COUNT * sizeof(STACK));
-	while(t_spawned < THREAD_COUNT)
-		t_handles[t_spawned++] = (HANDLE)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+	st = (STACK *)malloc((t_count+1) * sizeof(STACK));
+
+	
+
 	make_header(fp, atrb,  atr_count);
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
@@ -550,18 +562,14 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			exdta[j].atr_count = atr_count;
 			exdta[j].sbar_handle = testbar;
 			exdta[j].path = (files + i)->path;
-			exdta[j].output = (char *)malloc(sizeof(char) * 4096);
-			if (!exdta[j].output)
+			if (!(exdta[j].output = (char *)malloc(sizeof(char) * LINE_BUFFER_SIZE)))
 			{
 				error(L"malloc fail 479");
 				exit(EXIT_SUCCESS);
 			}
-			exdta[j].loc = &exdta[j].output;
-			exdta[j].out_b_size = &exdta[j].ots;
-
-			WaitForSingleObject(ghMutex, INFINITE);
+			//WaitForSingleObject(ghMutex, INFINITE);
 			push(&exdta[j]);
-			ReleaseMutex(ghMutex);
+			//ReleaseMutex(ghMutex);
 			
 			++j;
 			//extract_data((files + i)->path, atrb, atr_count, fp);
@@ -569,9 +577,33 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	}
 	//WaitForSingleObject(ghMutex, INFINITE);
 	//FINISHED = TRUE;
-	InterlockedExchange(&FINISHED, TRUE);
+	WORKING_T1 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+	WORKING_T2 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+	WORKING_T3 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+	WORKING_T4 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+	WORKING_T5 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
+
+	WaitForSingleObject((HANDLE)WORKING_T1, INFINITE);
+	CloseHandle((HANDLE)WORKING_T1);
+	WaitForSingleObject((HANDLE)WORKING_T2, INFINITE);
+	CloseHandle((HANDLE)WORKING_T2);
+	WaitForSingleObject((HANDLE)WORKING_T3, INFINITE);
+	CloseHandle((HANDLE)WORKING_T3);
+	WaitForSingleObject((HANDLE)WORKING_T4, INFINITE);
+	CloseHandle((HANDLE)WORKING_T4);
+	WaitForSingleObject((HANDLE)WORKING_T5, INFINITE);
+	CloseHandle((HANDLE)WORKING_T5);
+	//_endthreadex(WORKING_T1);
+	//_endthreadex(WORKING_T2);
+	//_endthreadex(WORKING_T3);
 	//ReleaseMutex(ghMutex);
-	WaitForMultipleObjects(t_spawned, t_handles, TRUE, INFINITE);
+	//debug(WaitForMultipleObjects(t_spawned, t_handles, TRUE, INFINITE));
+/*	
+	FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+	error(buf);
+*/
 	/*
 	for (j = 0; j < t_spawned; ++j)
 		CloseHandle(t_handles + j);
@@ -596,13 +628,25 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	for (i = 0; i < t_count; ++i)
 	{
 		//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);
-		fprintf(fp,"%d %s\n",i,exdta[i].output);
+		fprintf(fp,"%s",exdta[i].output);
 		free(exdta[i].output);
 		
 	}
-	free(exdta);
-	free(t_handles);
-	free(st);
-	fclose(fp);
-	MessageBoxA(NULL, "Finish", "test", MB_OK);
+	if (exdta)
+		free(exdta);
+	else
+		error(L"exdta free fail");
+
+	
+	if(st)
+		free(st);
+	else
+		error(L"st free fail");
+	if(fp)
+		fclose(fp);
+	else
+		error(L"fp close fail");
+	SendMessage(testbar, PBM_SETPOS, 0, 0);
+	MessageBoxA(NULL, "Task Finished", "test", MB_OK);
+	//OutputDebugStringW(L"Exit\n");
 }

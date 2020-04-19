@@ -14,6 +14,7 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    FilesSel(HWND, UINT, WPARAM, LPARAM);
 unsigned int __stdcall rfiles_t(void* data);
 unsigned int __stdcall timer(void* data);
+void				timer_init(void);
 
 
 // Global Variables:
@@ -26,7 +27,7 @@ ATTRIBUTE *attribute_table;
 FILE_BUFFER *file_buffer;
 size_t attribute_count, files_count;
 HWND listh1, listh2, btn1, btn2, btn3, btn4, static1, static2, statusb1;
-uintptr_t T1, T2, T3;
+uintptr_t T1, T2;
 LARGE_INTEGER nStartTime, nStopTime, nFrequency;
 HANDLE ghMutex;
 
@@ -330,6 +331,8 @@ INT_PTR CALLBACK FilesSel(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 		case IDOK:
 			update_selected_file_list(file_buffer, hDlg);
+			timer_init();
+			T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
 			T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
 			//read_files(file_buffer, files_count, attribute_table, attribute_count);
 		case IDCANCEL:
@@ -354,11 +357,10 @@ void timer_init(void)
 
 unsigned int __stdcall rfiles_t(void* data)
 {
-	timer_init();
-	T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
+	
 	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);
-	QueryPerformanceCounter(&nStopTime);
-	SendMessage(statusb1, PBM_SETPOS, 0, 0);
+	//QueryPerformanceCounter(&nStopTime);
+	//SendMessage(statusb1, PBM_SETPOS, 0, 0);
 	//SendMessage(testbar, PBM_GETPOS, 0, 0)
 	return 0;
 }
@@ -368,10 +370,10 @@ unsigned int __stdcall timer(void* data)
 	
 	WCHAR output_buffer[400];
 	double last_time = 0.0;
-	for (;;)
+	for (;;Sleep(300)) // timeris neturi daug eikvoti resursu
 	{
 		QueryPerformanceCounter(&nStopTime);
-		if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.1f)
+		if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3f)
 		{
 			last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
 			swprintf(output_buffer, 400,

@@ -451,6 +451,11 @@ unsigned int __stdcall fread_thread(void * data)
 		{
 			break;
 		}
+		if (InterlockedCompareExchange(&T_STOP, T_STOP, T_STOP))
+		{
+			while (InterlockedCompareExchange(&T_STOP, T_STOP, T_STOP))
+				Sleep(200);
+		}
 	}
 	//EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
 	//extract_data(arg->path, arg->atrb, arg->atr_count, arg->loc, arg->out_b_size);
@@ -482,6 +487,33 @@ void update_selected_file_list(FILE_BUFFER *fbuf, HWND hWnd)
 		SendMessage(GetDlgItem(hWnd, (int)IDC_FILELIST), LB_SETSEL, (WPARAM)FALSE, (LPARAM)test);
 		fbuf[test].selected = TRUE;
 	}
+}
+
+void first_file(WCHAR *pstr)
+{
+	WIN32_FIND_DATA fd = { 0 };
+	FILE_BUFFER *fbuf = NULL;
+	WCHAR *dir = (WCHAR *)calloc(MAX_PATH, sizeof(WCHAR));
+	lstrcpy(dir, pstr);
+	lstrcatW(dir, L"\\*");
+	HANDLE hFind = FindFirstFile(dir, &fd);
+	if (hFind != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (!wcscmp(fd.cFileName, L".") || !wcscmp(fd.cFileName, L"..") || fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				continue;
+			else if (wcsstr(fd.cFileName, L".arff"))
+			{
+				//lstrcpy(dir, path_str);
+				lstrcatW(pstr, L"\\");
+				lstrcatW(pstr, fd.cFileName);
+				break;
+			}
+		} while (FindNextFile(hFind, &fd));
+		FindClose(hFind);
+	}
+	free(dir);
 }
 
 FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount, HWND hWnd)
@@ -647,6 +679,7 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	else
 		error(L"fp close fail");
 	SendMessage(testbar, PBM_SETPOS, 0, 0);
+	T_DONE = TRUE;
 	MessageBoxA(NULL, "Task Finished", "test", MB_OK);
 	//OutputDebugStringW(L"Exit\n");
 }

@@ -33,6 +33,11 @@ struct EX_DATA_ARGS_
 
 extern char relationHeader[4096];
 extern HANDLE ghMutex;
+extern BOOL T_IN_PROGRESS;
+extern BOOL T_RESUME;
+extern BOOL T_STOP;
+extern BOOL T_DONE;
+
 
 HWND reg_obj(const WCHAR *name, WCHAR *classname, unsigned long attributes,
 	unsigned short xPos, unsigned short yPos, unsigned short width, 
@@ -49,6 +54,7 @@ void browser(WCHAR *path_str);
 void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s);
 unsigned int __stdcall fread_thread(void* data);
 FILE_BUFFER *file_search(WCHAR *path_str, size_t *f_count, HWND hWnd);
+void first_file(WCHAR *pstr);
 
 // Improve
 void read_files(FILE_BUFFER *files, const size_t f_count,

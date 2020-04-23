@@ -21,15 +21,25 @@ void				timer_init(void);
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-WCHAR selectedArffFolder[MAX_PATH] = L"C:\\Users\\zenon\\Desktop\\Namu_darbai_25\\multithrea\\arff";
+WCHAR selectedArffFolder[MAX_PATH] = L"";
+WCHAR atrFile[MAX_PATH];
 char relationHeader[4096];
 ATTRIBUTE *attribute_table;
 FILE_BUFFER *file_buffer;
 size_t attribute_count, files_count;
-HWND listh1, listh2, btn1, btn2, btn3, btn4, static1, static2, statusb1;
+HWND listh1, listh2, btn1, btn2, btn3, btn4, btn5, btn6, static1, static2, statusb1;
 uintptr_t T1, T2;
 LARGE_INTEGER nStartTime, nStopTime, nFrequency;
 HANDLE ghMutex;
+
+// Busenos rezimai
+//==============================
+BOOL T_IN_PROGRESS = FALSE;
+BOOL T_RESUME = FALSE;
+BOOL T_STOP = FALSE;
+BOOL T_START = FALSE;
+BOOL T_DONE = FALSE;
+//==============================
 
 
 // Forward declarations of functions included in this code module:
@@ -204,17 +214,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			btn2 = reg_obj(L"<", L"BUTTON",
 				WS_TABSTOP | WS_CHILD | BS_DEFPUSHBUTTON, 
 				50 + 310, 230, 30, 20, hWnd, (HMENU)IDC_BUTTON2);
-			btn4 = reg_obj(L"Master", L"BUTTON",
+			btn4 = reg_obj(L"Begin", L"BUTTON",
 				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-				50 + 700, 360, 30, 20, hWnd, (HMENU)IDC_BUTTON4);
+				50 + 700, 260, 100, 50, hWnd, (HMENU)IDC_BUTTON4);
+			btn5 = reg_obj(L"Pause", L"BUTTON",
+				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				50 + 700, 315, 100, 50, hWnd, (HMENU)IDC_BUTTON5);
+			btn6 = reg_obj(L"Abort", L"BUTTON",
+				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				50 + 700, 380, 100, 50, hWnd, (HMENU)IDC_BUTTON6);
 			static1 = reg_obj(L"No arff folder selected", L"static",
 				WS_VISIBLE | WS_CHILD ,
-				50, 10, 650, 20, hWnd, (HMENU)IDC_STATIC1);
+				50, 10, 660, 20, hWnd, (HMENU)IDC_STATIC1);
 			static2 = reg_obj(L"Timer", L"static",
 				WS_VISIBLE | WS_CHILD,
 				750, 50, 100, 20, hWnd, (HMENU)IDC_STATIC2);
 			statusb1 = DoCreateStatusBar(hWnd, IDC_STATUSBAR);
 			ghMutex = CreateMutex(NULL, FALSE, NULL);
+			T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
 			//attribute_table = read_data_attributes(L"C:\\Users\\lcepa\\Desktop\\Script_make\\Visual_studio\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
 			
 			//update_lists(hWnd, attribute_table, attribute_count);
@@ -261,13 +278,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_BUTTON4:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, FilesSel);
 				break;
+			case IDC_BUTTON5: // TODO: TOGGLE
+				break;
+			case IDC_BUTTON6: // TODO: TOGGLE
+				break;
 			case ID_FILE_SELECTFOLDER:
-				//browser(selectedArffFolder);
-
-				attribute_table = read_data_attributes(L"C:\\Users\\zenon\\Desktop\\Namu_darbai_25\\multithrea\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
+				browser(selectedArffFolder);
+				lstrcpyW(atrFile, selectedArffFolder);
+				first_file(atrFile);
+				attribute_table = read_data_attributes(atrFile, hWnd, &attribute_count);
 				ShowWindow(btn1, SW_SHOW);
 				ShowWindow(btn2, SW_SHOW);
 				SetWindowTextW(static1, selectedArffFolder);
+				//attribute_table = read_data_attributes(file_buffer[0].path, hWnd, &attribute_count);
 				break;
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -280,6 +303,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+	case WM_CLOSE:
+		if (InterlockedCompareExchange(&T_IN_PROGRESS, T_IN_PROGRESS, T_IN_PROGRESS))
+		{
+			MessageBoxA(hWnd, "Cannot close while program is still processing data", "Warning", MB_OK);
+			break;
+		}
+		DestroyWindow(hWnd);
+		break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -331,10 +362,12 @@ INT_PTR CALLBACK FilesSel(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 		case IDOK:
 			update_selected_file_list(file_buffer, hDlg);
-			timer_init();
-			T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
-			T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
 			//read_files(file_buffer, files_count, attribute_table, attribute_count);
+			T_IN_PROGRESS = TRUE;
+			T_START = TRUE;
+			
+			//T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
+			
 		case IDCANCEL:
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
@@ -365,21 +398,42 @@ unsigned int __stdcall rfiles_t(void* data)
 	return 0;
 }
 
-unsigned int __stdcall timer(void* data)
+unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 {
 	
 	WCHAR output_buffer[400];
 	double last_time = 0.0;
-	for (;;Sleep(300)) // timeris neturi daug eikvoti resursu
+	for (;;)
 	{
-		QueryPerformanceCounter(&nStopTime);
-		if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3f)
+
+		while (!InterlockedCompareExchange(&T_START, T_START, T_START))
+			Sleep(200);
+		ShowWindow(btn4, SW_HIDE);
+		T_START = FALSE;
+		timer_init();
+		T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
+		for (last_time = 0.0; !InterlockedCompareExchange(&T_DONE, T_DONE, T_DONE); Sleep(300)) // timeris neturi eikvoti daug resursu
 		{
-			last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
-			swprintf(output_buffer, 400,
-				L"%.1f", last_time);
-			SetWindowTextW(static2, output_buffer);
+			QueryPerformanceCounter(&nStopTime);
+			if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3f)
+			{
+				last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
+				swprintf(output_buffer, 400,
+					L"%.1f", last_time);
+				SetWindowTextW(static2, output_buffer);
+			}
+
+			if (InterlockedCompareExchange(&T_STOP, T_STOP, T_STOP))
+			{
+				while (!InterlockedCompareExchange(&T_RESUME, T_RESUME, T_RESUME))
+					Sleep(200);
+				T_RESUME = FALSE;
+				T_STOP = FALSE;
+			}
 		}
+		CloseHandle((HANDLE)T1);
+		T_DONE = FALSE;
+		T_IN_PROGRESS = FALSE;
 	}
 	free(output_buffer);
 	return 0;

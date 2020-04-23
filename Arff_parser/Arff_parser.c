@@ -215,13 +215,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				WS_TABSTOP | WS_CHILD | BS_DEFPUSHBUTTON, 
 				50 + 310, 230, 30, 20, hWnd, (HMENU)IDC_BUTTON2);
 			btn4 = reg_obj(L"Begin", L"BUTTON",
-				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				WS_TABSTOP | WS_CHILD | BS_DEFPUSHBUTTON,
 				50 + 700, 260, 100, 50, hWnd, (HMENU)IDC_BUTTON4);
 			btn5 = reg_obj(L"Pause", L"BUTTON",
-				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				WS_TABSTOP | WS_CHILD | BS_DEFPUSHBUTTON,
 				50 + 700, 315, 100, 50, hWnd, (HMENU)IDC_BUTTON5);
 			btn6 = reg_obj(L"Abort", L"BUTTON",
-				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				WS_TABSTOP  | WS_CHILD | BS_DEFPUSHBUTTON,
 				50 + 700, 380, 100, 50, hWnd, (HMENU)IDC_BUTTON6);
 			static1 = reg_obj(L"No arff folder selected", L"static",
 				WS_VISIBLE | WS_CHILD ,
@@ -290,6 +290,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				ShowWindow(btn1, SW_SHOW);
 				ShowWindow(btn2, SW_SHOW);
 				SetWindowTextW(static1, selectedArffFolder);
+				ShowWindow(btn4, SW_SHOW);
 				//attribute_table = read_data_attributes(file_buffer[0].path, hWnd, &attribute_count);
 				break;
             case IDM_ABOUT:
@@ -409,6 +410,8 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 		while (!InterlockedCompareExchange(&T_START, T_START, T_START))
 			Sleep(200);
 		ShowWindow(btn4, SW_HIDE);
+		ShowWindow(btn5, SW_SHOW);
+		ShowWindow(btn6, SW_SHOW);
 		T_START = FALSE;
 		timer_init();
 		T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
@@ -434,6 +437,12 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 		CloseHandle((HANDLE)T1);
 		T_DONE = FALSE;
 		T_IN_PROGRESS = FALSE;
+		ShowWindow(btn4, SW_SHOW);
+		ShowWindow(btn5, SW_HIDE);
+		ShowWindow(btn6, SW_HIDE);
+		free(file_buffer);
+		file_buffer = NULL;
+		files_count = 0;
 	}
 	free(output_buffer);
 	return 0;

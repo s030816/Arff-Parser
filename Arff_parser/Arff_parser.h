@@ -51,11 +51,11 @@ void remove_item(ATTRIBUTE *atrb, HWND hWnd);
 void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count);
 INT_PTR CALLBACK BrowseCallbackProc(HWND, UINT, LPARAM, LPARAM);
 void browser(WCHAR *path_str);
-void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s);
+void extract_data(const WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s);
 unsigned int __stdcall fread_thread(void* data);
 FILE_BUFFER *file_search(WCHAR *path_str, size_t *f_count, HWND hWnd);
 void first_file(WCHAR *pstr);
 
 // Improve
-void read_files(FILE_BUFFER *files, const size_t f_count,
-	ATTRIBUTE *atrb, const size_t atr_count, HWND testbar);
+void read_files(const FILE_BUFFER * files, const size_t f_count, const ATTRIBUTE * atrb,
+	const size_t atr_count, HWND testbar);

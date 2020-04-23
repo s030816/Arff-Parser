@@ -28,9 +28,11 @@ void debug(int number)
 	MessageBoxW(NULL, str,L"Debug", MB_OK);
 }
 
-void error(WCHAR *text)
+void error(WCHAR *text, int code)
 {
-	MessageBoxW(NULL, text, L"Error", MB_OK);
+	WCHAR num[20];
+	wsprintfW(num, L"Error: %d", code);
+	MessageBoxW(NULL, text, num, MB_OK);
 }
 
 
@@ -119,7 +121,7 @@ static void insert_attribute(ATTRIBUTE **atr, const size_t size)
 	}
 	else
 	{
-		error(L"Error allocating memory");
+		error(L"Error allocating memory",122);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -140,7 +142,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 		}
 		else
 		{
-			error(L"Error reading file");
+			error(L"Error reading file",143);
 			exit(EXIT_SUCCESS);
 		}
 		for (;;)
@@ -159,7 +161,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 					fattrib[attrib_idx].datatype = (char *)malloc(sizeof(char)*strlen(tmp2));
 					if (!fattrib[attrib_idx].attrib_buffer || !fattrib[attrib_idx].datatype)
 					{
-						error(L"Error allocating memory");
+						error(L"Error allocating memory",162);
 						exit(EXIT_SUCCESS);
 					}
 					add_item(hWnd, tmp1, (HMENU)IDC_LISTBOX);
@@ -169,7 +171,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 			}
 			else
 			{
-				error(L"Error reading file");
+				error(L"Error reading file",172);
 				exit(EXIT_SUCCESS);
 			}
 		}
@@ -178,7 +180,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 	}
 	else
 	{
-		error(L"Error opening file: 142");
+		error(L"Error opening file",181);
 		exit(EXIT_SUCCESS);
 	}
 	free(rbuffer);
@@ -292,7 +294,7 @@ void make_header(FILE *fp, ATTRIBUTE * atrb, const size_t atr_count)
 	fprintf(fp, "%s", "\n@data\n");
 }
 
-void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s)
+void extract_data(const WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char **out, size_t *out_s)
 {
 	FILE *fp = NULL;
 	char *iter = *out;
@@ -306,7 +308,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 	char *rbuffer = (char *)malloc(sizeof(char) * MEGABYTE_CHUNK);
 	if (!rbuffer)
 	{
-		error(L"1 MB memory allocation failed");
+		error(L"1 MB memory allocation failed",309);
 		exit(EXIT_SUCCESS);
 	}
 	//OutputDebugStringW(L"Post file malloc\n");
@@ -321,7 +323,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 					if (MEGABYTE_CHUNK == fread(rbuffer, sizeof(char), MEGABYTE_CHUNK, fp))
 					{
 						// TODO: IMPLEMENT 10 MB buffer extending
-						error(L"File is bigger than 1 MB");
+						error(L"File is bigger than 1 MB",324);
 						exit(EXIT_SUCCESS);
 					}
 					//OutputDebugStringW(L"Closing file handle\n");
@@ -341,7 +343,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 						}
 						else
 						{
-							error(L"extr data realloc failed");
+							error(L"extr data realloc failed",344);
 							exit(EXIT_SUCCESS);
 						}
 					}
@@ -360,7 +362,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 							}
 							else
 							{
-								error(L"extr data realloc failed");
+								error(L"extr data realloc failed",363);
 								exit(EXIT_SUCCESS);
 							}
 						}
@@ -379,7 +381,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 									}
 									else
 									{
-										error(L"extr data realloc failed");
+										error(L"extr data realloc failed",382);
 										exit(EXIT_SUCCESS);
 									}
 								}
@@ -398,7 +400,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 						}
 						else
 						{
-							error(L"extr data realloc failed");
+							error(L"extr data realloc failed",401);
 							exit(EXIT_SUCCESS);
 						}
 					}
@@ -411,7 +413,7 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 			}
 			else
 			{
-				error(L"Error reading file");
+				error(L"Error reading file",414);
 				exit(EXIT_SUCCESS);
 			}
 		}
@@ -420,7 +422,8 @@ void extract_data(WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, char *
 	else
 	{
 		//error(L"Error opening file: 345");
-		error(path);
+		error(path,423);
+		debug(path);
 		exit(EXIT_SUCCESS);
 	}
 	//OutputDebugStringW(L"Freeing rbuffer\n");
@@ -474,7 +477,7 @@ static void insert_file(FILE_BUFFER **atr, const size_t size)
 	}
 	else
 	{
-		error(L"Error allocating memory");
+		error(L"Error allocating memory",477);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -557,7 +560,7 @@ FILE_BUFFER *file_search(WCHAR * path_str, size_t *fcount, HWND hWnd)
 	return fbuf;
 }
 
-void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
+void read_files(const FILE_BUFFER * files, const size_t f_count, const ATTRIBUTE * atrb,
 	const size_t atr_count, HWND testbar) // TODO: FIX selected attributes count
 {
 	EX_DATA_ARGS *exdta = NULL;
@@ -565,9 +568,12 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	FILE *fp;
 	DWORD t_count = 0;
 	
+	stack_index = 0;
+	st = NULL;
+
 	if (!(fp = fopen("test.txt", "w")))
 	{
-		error(L"Error opening output file");
+		error(L"Error opening output file", 570);
 		exit(EXIT_SUCCESS);
 	}
 	for (i = 0; i < f_count; ++i)
@@ -596,7 +602,7 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 			exdta[j].path = (files + i)->path;
 			if (!(exdta[j].output = (char *)malloc(sizeof(char) * LINE_BUFFER_SIZE)))
 			{
-				error(L"malloc fail 479");
+				error(L"malloc fail",599);
 				exit(EXIT_SUCCESS);
 			}
 			//WaitForSingleObject(ghMutex, INFINITE);
@@ -667,17 +673,17 @@ void read_files(FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atrb,
 	if (exdta)
 		free(exdta);
 	else
-		error(L"exdta free fail");
+		error(L"exdta free fail",670);
 
 	
 	if(st)
 		free(st);
 	else
-		error(L"st free fail");
+		error(L"st free fail",676);
 	if(fp)
 		fclose(fp);
 	else
-		error(L"fp close fail");
+		error(L"fp close fail",680);
 	SendMessage(testbar, PBM_SETPOS, 0, 0);
 	T_DONE = TRUE;
 	MessageBoxA(NULL, "Task Finished", "test", MB_OK);

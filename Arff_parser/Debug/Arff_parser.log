@@ -1,11 +1,3 @@
-﻿  utils.c
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(425): warning C4090: 'function': different 'const' qualifiers
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(426): warning C4047: 'function': 'int' differs in levels of indirection from 'const WCHAR *'
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(426): warning C4024: 'debug': different types for formal and actual parameter 1
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(593): warning C4090: 'function': different 'const' qualifiers
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(599): warning C4090: '=': different 'const' qualifiers
-c:\users\zenon\source\repos\s030816\arff-parser\arff_parser\utils.c(602): warning C4090: '=': different 'const' qualifiers
-  Arff_parser.c
-  Generating Code...
+﻿  Arff_parser.c
   Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\s030816\Arff-Parser\Debug\Arff_parser.exe
   Arff_parser.vcxproj -> C:\Users\zenon\Source\Repos\s030816\Arff-Parser\Debug\Arff_parser.pdb (Full PDB)

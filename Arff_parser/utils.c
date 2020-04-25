@@ -422,7 +422,7 @@ void extract_data(const WCHAR * path, ATTRIBUTE * atrb, const size_t atr_count, 
 	else
 	{
 		//error(L"Error opening file: 345");
-		error(path,423);
+		error(L"Corrupted path",423);
 		debug(path);
 		exit(EXIT_SUCCESS);
 	}
@@ -458,6 +458,10 @@ unsigned int __stdcall fread_thread(void * data)
 		{
 			while (InterlockedCompareExchange(&T_STOP, T_STOP, T_STOP))
 				Sleep(200);
+		}
+		else if (InterlockedCompareExchange(&T_ABORT, T_ABORT, T_ABORT))
+		{
+			return 0;
 		}
 	}
 	//EX_DATA_ARGS *arg = (EX_DATA_ARGS *)data;
@@ -663,29 +667,24 @@ void read_files(const FILE_BUFFER * files, const size_t f_count, const ATTRIBUTE
 	//debug(WAIT_OBJECT_0);
 	//wait_multiple_kernel_objects(t_handles, j); 
 	//Wait(t_count, t_handles, TRUE, INFINITE);
-	for (i = 0; i < t_count; ++i)
-	{
-		//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);
-		fprintf(fp,"%s",exdta[i].output);
-		free(exdta[i].output);
+	if (!InterlockedCompareExchange(&T_ABORT, T_ABORT, T_ABORT))
+		for (i = 0; i < t_count; ++i)
+		{
+			//MessageBoxA(NULL, exdta[i].output, "test", MB_OK);
+			fprintf(fp,"%s",exdta[i].output);
+			free(exdta[i].output);
 		
-	}
-	if (exdta)
-		free(exdta);
-	else
-		error(L"exdta free fail",670);
+		}
 
-	
-	if(st)
-		free(st);
-	else
-		error(L"st free fail",676);
-	if(fp)
-		fclose(fp);
-	else
-		error(L"fp close fail",680);
+	if (exdta) free(exdta);
+	else error(L"exdta free fail",670);
+	if(st) free(st);
+	else error(L"st free fail",676);
+	if(fp) fclose(fp);
+	else error(L"fp close fail",680);
+
 	SendMessage(testbar, PBM_SETPOS, 0, 0);
 	T_DONE = TRUE;
-	MessageBoxA(NULL, "Task Finished", "test", MB_OK);
+	MessageBoxA(NULL, "Task Finished", "Info", MB_OK);
 	//OutputDebugStringW(L"Exit\n");
 }

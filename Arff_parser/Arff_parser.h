@@ -37,6 +37,7 @@ extern BOOL T_IN_PROGRESS;
 extern BOOL T_RESUME;
 extern BOOL T_STOP;
 extern BOOL T_DONE;
+extern BOOL T_ABORT;
 
 
 HWND reg_obj(const WCHAR *name, WCHAR *classname, unsigned long attributes,

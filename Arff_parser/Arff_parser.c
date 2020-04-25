@@ -39,6 +39,7 @@ BOOL T_RESUME = FALSE;
 BOOL T_STOP = FALSE;
 BOOL T_START = FALSE;
 BOOL T_DONE = FALSE;
+BOOL T_ABORT = FALSE;
 //==============================
 
 
@@ -232,7 +233,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			statusb1 = DoCreateStatusBar(hWnd, IDC_STATUSBAR);
 			ghMutex = CreateMutex(NULL, FALSE, NULL);
 			T2 = (uintptr_t)_beginthreadex(0, 0, &timer, 0, 0, 0);
-			//attribute_table = read_data_attributes(L"C:\\Users\\lcepa\\Desktop\\Script_make\\Visual_studio\\arff\\fixed_1 Dziaugsmas_01.arff", hWnd, &attribute_count);
+			
 			
 			//update_lists(hWnd, attribute_table, attribute_count);
 			/*
@@ -278,9 +279,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_BUTTON4:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, FilesSel);
 				break;
-			case IDC_BUTTON5: // TODO: TOGGLE
+			case IDC_BUTTON5:
+				if (T_STOP)
+				{
+					T_RESUME = TRUE;
+					SendMessage(btn5, WM_SETTEXT, (WPARAM)0, (LPARAM)L"Pause");
+				}
+				else
+				{
+					T_STOP = TRUE;
+					SendMessage(btn5, WM_SETTEXT, (WPARAM)0, (LPARAM)L"Resume");
+				}
 				break;
-			case IDC_BUTTON6: // TODO: TOGGLE
+			case IDC_BUTTON6:
+				T_ABORT = TRUE;
 				break;
 			case ID_FILE_SELECTFOLDER:
 				browser(selectedArffFolder);
@@ -297,6 +309,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
             case IDM_EXIT:
+				if (InterlockedCompareExchange(&T_IN_PROGRESS, T_IN_PROGRESS, T_IN_PROGRESS))
+				{
+					MessageBoxA(hWnd, "Cannot close while program is still processing data", "Warning", MB_OK);
+					break;
+				}
                 DestroyWindow(hWnd);
                 break;
             default:
@@ -366,10 +383,12 @@ INT_PTR CALLBACK FilesSel(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			//read_files(file_buffer, files_count, attribute_table, attribute_count);
 			T_IN_PROGRESS = TRUE;
 			T_START = TRUE;
-			
 			//T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
-			
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+			break;
 		case IDCANCEL:
+			files_count = 0;
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
 			break;
@@ -379,9 +398,6 @@ INT_PTR CALLBACK FilesSel(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	return (INT_PTR)FALSE;
 }
 
-// ShowWindow(hwndButton, SW_HIDE);
-// T1 = (uintptr_t)_beginthreadex(0, 0, &paieska, 0, 0, 0);
-// QueryPerformanceCounter(&nStopTime);
 
 void timer_init(void)
 {
@@ -393,9 +409,6 @@ unsigned int __stdcall rfiles_t(void* data)
 {
 	
 	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);
-	//QueryPerformanceCounter(&nStopTime);
-	//SendMessage(statusb1, PBM_SETPOS, 0, 0);
-	//SendMessage(testbar, PBM_GETPOS, 0, 0)
 	return 0;
 }
 
@@ -409,16 +422,21 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 
 		while (!InterlockedCompareExchange(&T_START, T_START, T_START))
 			Sleep(200);
-		ShowWindow(btn4, SW_HIDE);
-		ShowWindow(btn5, SW_SHOW);
-		ShowWindow(btn6, SW_SHOW);
+		ShowWindow(btn4, SW_HIDE); // master button
+		ShowWindow(btn1, SW_HIDE); // >
+		ShowWindow(btn2, SW_HIDE); // <
+		ShowWindow(btn5, SW_SHOW); // Pause
+		ShowWindow(btn6, SW_SHOW); // Abort
 		T_START = FALSE;
-		timer_init();
-		T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0);
-		for (last_time = 0.0; !InterlockedCompareExchange(&T_DONE, T_DONE, T_DONE); Sleep(300)) // timeris neturi eikvoti daug resursu
+		timer_init(); 
+		last_time = 0; // nuresetinamas timeris
+		T1 = (uintptr_t)_beginthreadex(0, 0, &rfiles_t, 0, 0, 0); // nauja gija parsinimo darbui
+		// Timeriui nereikia bereikalingai eikvoti resursu - 
+		// Sleep kiekvieno ciklo gale, kad liktu daugiau loginiu giju pagrindiniam darbui
+		for (last_time = 0.0; !InterlockedCompareExchange(&T_DONE, T_DONE, T_DONE); Sleep(300))
 		{
 			QueryPerformanceCounter(&nStopTime);
-			if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3f)
+			if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3)
 			{
 				last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
 				swprintf(output_buffer, 400,
@@ -437,7 +455,10 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 		CloseHandle((HANDLE)T1);
 		T_DONE = FALSE;
 		T_IN_PROGRESS = FALSE;
+		T_ABORT = FALSE;
 		ShowWindow(btn4, SW_SHOW);
+		ShowWindow(btn1, SW_SHOW);
+		ShowWindow(btn2, SW_SHOW);
 		ShowWindow(btn5, SW_HIDE);
 		ShowWindow(btn6, SW_HIDE);
 		free(file_buffer);

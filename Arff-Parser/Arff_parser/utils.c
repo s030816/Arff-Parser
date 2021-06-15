@@ -23,7 +23,7 @@ struct STACK_
 
 void debug(int number)
 {
-	WCHAR str[500];
+	WCHAR str[50];
 	wsprintfW(str, L"debug: %d", number);
 	MessageBoxW(NULL, str,L"Debug", MB_OK);
 }
@@ -134,6 +134,11 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 	char *rbuffer = (char *)malloc(sizeof(char) * SECTOR_SIZE);
 	char *tmp1 = (char *)malloc(sizeof(char) * SECTOR_SIZE);
 	char *tmp2 = (char *)malloc(sizeof(char) * SECTOR_SIZE);
+	if (!rbuffer || !tmp1 || !tmp2)
+	{
+		error(L"Error allocating memory", 134);
+		exit(EXIT_SUCCESS);
+	}
 	if (fp = _wfopen(path, L"r"))
 	{
 		if (fgets(rbuffer, SECTOR_SIZE, fp))
@@ -157,8 +162,9 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 					custom_sscanf(rbuffer+sizeof("@attribute"), tmp1,tmp2);
 					fattrib[attrib_idx].selected = FALSE;
 					fattrib[attrib_idx].indx = attrib_idx;
-					fattrib[attrib_idx].attrib_buffer = (char *)malloc(sizeof(char)*strlen(tmp1));
-					fattrib[attrib_idx].datatype = (char *)malloc(sizeof(char)*strlen(tmp2));
+					
+					fattrib[attrib_idx].attrib_buffer = (char *)malloc(sizeof(char)*strlen(tmp1) + 1);
+					fattrib[attrib_idx].datatype = (char *)malloc(sizeof(char)*strlen(tmp2) + 1);
 					if (!fattrib[attrib_idx].attrib_buffer || !fattrib[attrib_idx].datatype)
 					{
 						error(L"Error allocating memory",162);
@@ -167,6 +173,7 @@ ATTRIBUTE *read_data_attributes(WCHAR *path, HWND hWnd, size_t *atr_count)
 					add_item(hWnd, tmp1, (HMENU)IDC_LISTBOX);
 					strcpy(fattrib[attrib_idx].attrib_buffer, tmp1);
 					strcpy(fattrib[attrib_idx++].datatype, tmp2);
+					//attrib_idx++;
 				}
 			}
 			else
@@ -576,7 +583,6 @@ void read_files(const FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atr
 	
 	stack_index = 0;
 	st = NULL;
-
 	if (!(fp = fopen("test.txt", "w")))
 	{
 		error(L"Error opening output file", 570);
@@ -597,6 +603,7 @@ void read_files(const FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atr
 	
 
 	make_header(fp, atrb,  atr_count);
+	
 	for (i = 0, j = 0; i < f_count; ++i)
 	{
 		if ((files + i)->selected)
@@ -626,7 +633,6 @@ void read_files(const FILE_BUFFER * files, const size_t f_count, ATTRIBUTE * atr
 	WORKING_T3 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
 	WORKING_T4 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
 	WORKING_T5 = (uintptr_t)_beginthreadex(0, 0, &fread_thread, 0, 0, 0);
-
 	WaitForSingleObject((HANDLE)WORKING_T1, INFINITE);
 	CloseHandle((HANDLE)WORKING_T1);
 	WaitForSingleObject((HANDLE)WORKING_T2, INFINITE);

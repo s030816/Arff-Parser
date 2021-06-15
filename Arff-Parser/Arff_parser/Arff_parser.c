@@ -337,8 +337,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		T_EXIT = TRUE;
 		T_START = TRUE;
-		WaitForSingleObject((HANDLE)T1, (DWORD)2000);
-		CloseHandle((HANDLE)T1);
+		{
+			WaitForSingleObject((HANDLE)T1, (DWORD)2000);
+			CloseHandle((HANDLE)T1);
+		}
+		
 		DestroyWindow(hWnd);
 		break;
     case WM_PAINT:
@@ -419,7 +422,6 @@ void timer_init(void)
 
 unsigned int __stdcall rfiles_t(void* data)
 {
-	
 	read_files(file_buffer, files_count, attribute_table, attribute_count,statusb1);
 	return 0;
 }
@@ -455,7 +457,7 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 			if ((double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart - last_time > 0.3)
 			{
 				last_time = (double)(nStopTime.QuadPart - nStartTime.QuadPart) / nFrequency.QuadPart;
-				swprintf(output_buffer, 400,
+				swprintf(output_buffer, 399,
 					L"%.1f", last_time);
 				SetWindowTextW(static2, output_buffer);
 			}
@@ -468,7 +470,9 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 				T_STOP = FALSE;
 			}
 		}
-		CloseHandle((HANDLE)T1);
+		if(T1)
+			CloseHandle((HANDLE)T1);
+		T1 = NULL;
 		T_DONE = FALSE;
 		T_IN_PROGRESS = FALSE;
 		T_ABORT = FALSE;
@@ -481,6 +485,7 @@ unsigned int __stdcall timer(void* data) // TODO: perdaryti i thread manageri
 		file_buffer = NULL;
 		files_count = 0;
 	}
-	free(output_buffer);
+	if(output_buffer)
+		free(output_buffer);
 	return 0;
 }
